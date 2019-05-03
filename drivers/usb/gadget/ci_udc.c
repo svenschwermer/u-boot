@@ -81,6 +81,7 @@ static struct usb_endpoint_descriptor ep0_desc = {
 };
 
 static int ci_pullup(struct usb_gadget *gadget, int is_on);
+#if !CONFIG_IS_ENABLED(DM_USB_GADGET)
 static int ci_ep_enable(struct usb_ep *ep,
 		const struct usb_endpoint_descriptor *desc);
 static int ci_ep_disable(struct usb_ep *ep);
@@ -90,11 +91,17 @@ static int ci_ep_dequeue(struct usb_ep *ep, struct usb_request *req);
 static struct usb_request *
 ci_ep_alloc_request(struct usb_ep *ep, unsigned int gfp_flags);
 static void ci_ep_free_request(struct usb_ep *ep, struct usb_request *_req);
+#endif
 
 static struct usb_gadget_ops ci_udc_ops = {
 	.pullup = ci_pullup,
 };
 
+__weak void ci_init_after_reset(struct ehci_ctrl *ctrl)
+{
+}
+
+#if !CONFIG_IS_ENABLED(DM_USB_GADGET)
 static struct usb_ep_ops ci_ep_ops = {
 	.enable         = ci_ep_enable,
 	.disable        = ci_ep_disable,
@@ -103,10 +110,6 @@ static struct usb_ep_ops ci_ep_ops = {
 	.alloc_request  = ci_ep_alloc_request,
 	.free_request   = ci_ep_free_request,
 };
-
-__weak void ci_init_after_reset(struct ehci_ctrl *ctrl)
-{
-}
 
 /* Init values for USB endpoints. */
 static const struct usb_ep ci_ep_init[5] = {
@@ -136,6 +139,7 @@ static const struct usb_ep ci_ep_init[5] = {
 		.ops		= &ci_ep_ops,
 	},
 };
+#endif
 
 static struct ci_drv controller = {
 	.gadget	= {
@@ -259,6 +263,7 @@ static void ci_invalidate_td(struct ept_queue_item *td)
 	invalidate_dcache_range(start, end);
 }
 
+#if !CONFIG_IS_ENABLED(DM_USB_GADGET)
 static struct usb_request *
 ci_ep_alloc_request(struct usb_ep *ep, unsigned int gfp_flags)
 {
@@ -303,6 +308,7 @@ static void ci_ep_free_request(struct usb_ep *ep, struct usb_request *req)
 		free(ci_req->b_buf);
 	free(ci_req);
 }
+#endif
 
 static void ep_enable(int num, int in, int maxpacket)
 {
@@ -324,6 +330,7 @@ static void ep_enable(int num, int in, int maxpacket)
 	writel(n, &udc->epctrl[num]);
 }
 
+#if !CONFIG_IS_ENABLED(DM_USB_GADGET)
 static int ci_ep_enable(struct usb_ep *ep,
 		const struct usb_endpoint_descriptor *desc)
 {
@@ -356,7 +363,9 @@ static int ci_ep_disable(struct usb_ep *ep)
 	ci_ep->desc = NULL;
 	return 0;
 }
+#endif
 
+#if !CONFIG_IS_ENABLED(DM_USB_GADGET)
 static int ci_bounce(struct ci_req *ci_req, int in)
 {
 	struct usb_request *req = &ci_req->req;
@@ -401,6 +410,7 @@ flush:
 
 	return 0;
 }
+#endif
 
 static void ci_debounce(struct ci_req *ci_req, int in)
 {
@@ -528,6 +538,7 @@ static void ci_ep_submit_next_request(struct ci_ep *ci_ep)
 	writel(bit, &udc->epprime);
 }
 
+#if !CONFIG_IS_ENABLED(DM_USB_GADGET)
 static int ci_ep_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 {
 	struct ci_ep *ci_ep = container_of(_ep, struct ci_ep, ep);
@@ -591,6 +602,7 @@ static int ci_ep_queue(struct usb_ep *ep,
 
 	return 0;
 }
+#endif
 
 static void flip_ep0_direction(void)
 {
@@ -860,6 +872,7 @@ void udc_irq(void)
 	}
 }
 
+#if !CONFIG_IS_ENABLED(DM_USB_GADGET)
 int usb_gadget_handle_interrupts(int index)
 {
 	u32 value;
@@ -871,6 +884,7 @@ int usb_gadget_handle_interrupts(int index)
 
 	return value;
 }
+#endif
 
 void udc_disconnect(void)
 {
@@ -915,6 +929,7 @@ static int ci_pullup(struct usb_gadget *gadget, int is_on)
 	return 0;
 }
 
+#if !CONFIG_IS_ENABLED(DM_USB_GADGET)
 static int ci_udc_probe(void)
 {
 	struct ept_queue_head *head;
@@ -1052,6 +1067,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 
 	return 0;
 }
+#endif
 
 bool dfu_usb_get_reset(void)
 {
