@@ -396,6 +396,13 @@ config TARGET_MX6ULL_14X14_EVK
 	select MX6ULL
 	imply CMD_DM
 
+config TARGET_MYS_6ULX_IOT
+	bool "MYiR MYS-6ULX-IOT"
+	select MX6ULL
+	select SUPPORT_SPL
+	select DM
+	select DM_THERMAL
+
 config TARGET_NITROGEN6X
 	bool "nitrogen6x"
 	imply USB_ETHER_ASIX
@@ -584,6 +591,7 @@ source "board/samtec/vining_2000/Kconfig"
 source "board/liebherr/display5/Kconfig"
 source "board/liebherr/mccmon6/Kconfig"
 source "board/logicpd/imx6/Kconfig"
+source "board/myir/mys-6ulx/Kconfig"
 source "board/seco/Kconfig"
 source "board/sks-kinkel/sksimx6/Kconfig"
 source "board/solidrun/mx6cuboxi/Kconfig"

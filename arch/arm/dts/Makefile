@@ -558,7 +558,8 @@ dtb-$(CONFIG_MX6UL) += \
 dtb-$(CONFIG_MX6ULL) += \
 	imx6ull-14x14-evk.dtb \
 	imx6ull-colibri.dtb \
-	imx6ull-dart-6ul.dtb
+	imx6ull-dart-6ul.dtb \
+	imx6ull-mys-6ulx-iot.dtb
 
 dtb-$(CONFIG_ARCH_MX6) += \
 	imx6-colibri.dtb
