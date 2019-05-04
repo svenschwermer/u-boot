@@ -11,13 +11,6 @@
 	model = "MYiR MYS-6ULX-IOT";
 	compatible = "myir,mys-6ulx-iot", "fsl,imx6ull";
 
-	aliases {
-/*
-		mmc0 = &usdhc1;
-		usb0 = &usbotg1;
-*/
-	};
-
 	chosen {
 		stdout-path = &uart1;
 	};
@@ -32,23 +25,15 @@
 };
 
 &adc1 {
-	num-channels = <10>;
 	vref-supply = <&reg_vdd_3v3>;
 };
 
-/*
-&ecspi1 {
-	cs-gpios = <&gpio3 26 GPIO_ACTIVE_HIGH>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ecspi1 &pinctrl_ecspi1_cs>;
-};
-*/
-
 &fec1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_enet1>;
+	pinctrl-0 = <&pinctrl_enet1 &pinctrl_ethphy_reset>;
 	phy-mode = "rmii";
 	phy-handle = <&ethphy>;
+	phy-reset-gpios = <&gpio5 6 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
 	mdio {
@@ -98,7 +83,6 @@
 
 &usbotg2 {
 	dr_mode = "host";
-	/* vbus-supply = <&reg_usbh_vbus>; */
 	status = "okay";
 };
 
@@ -179,4 +163,9 @@
 };
 
 &iomuxc_snvs {
+	pinctrl_ethphy_reset: ethphy-grp {
+		fsl,pins = <
+			MX6ULL_PAD_SNVS_TAMPER6__GPIO5_IO06 0x130b0
+		>;
+	};
 };
