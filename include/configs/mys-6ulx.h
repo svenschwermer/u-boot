@@ -119,10 +119,19 @@
 # define CONFIG_MXC_USB_PORTSC (PORT_PTS_UTMI | PORT_PTS_PTW)
 #endif
 
+#ifdef CONFIG_NAND
+# define CONFIG_SYS_MAX_NAND_DEVICE 1
+#endif
+
 /* SPL */
 #ifdef CONFIG_SPL
+# ifdef CONFIG_MXC_UART
+#  define CONFIG_MXC_UART_BASE		UART1_BASE
+# endif
+# ifdef CONFIG_FSL_USDHC
+#  define CONFIG_SYS_FSL_ESDHC_ADDR	USDHC1_BASE_ADDR
+# endif
 # include "imx6_spl.h"
-# define CONFIG_MXC_UART_BASE		UART1_BASE
 #endif
 
 #endif /* __MYS_6ULX_CONFIG_H */
