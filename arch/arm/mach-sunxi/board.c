@@ -10,6 +10,7 @@
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <mmc.h>
 #include <i2c.h>
 #include <serial.h>
@@ -65,6 +66,7 @@ struct mm_region *mem_map = sunxi_mem_map;
 
 static int gpio_init(void)
 {
+	__maybe_unused uint val;
 #if CONFIG_CONS_INDEX == 1 && defined(CONFIG_UART0_PORT_F)
 #if defined(CONFIG_MACH_SUN4I) || \
     defined(CONFIG_MACH_SUN7I) || \
@@ -137,6 +139,14 @@ static int gpio_init(void)
 	sunxi_gpio_set_pull(SUNXI_GPL(3), SUNXI_GPIO_PULL_UP);
 #else
 #error Unsupported console port number. Please fix pin mux settings in board.c
+#endif
+
+#ifdef CONFIG_MACH_SUN50I_H6
+	/* Update PIO power bias configuration by copy hardware detected value */
+	val = readl(SUNXI_PIO_BASE + SUN50I_H6_GPIO_POW_MOD_VAL);
+	writel(val, SUNXI_PIO_BASE + SUN50I_H6_GPIO_POW_MOD_SEL);
+	val = readl(SUNXI_R_PIO_BASE + SUN50I_H6_GPIO_POW_MOD_VAL);
+	writel(val, SUNXI_R_PIO_BASE + SUN50I_H6_GPIO_POW_MOD_SEL);
 #endif
 
 	return 0;
@@ -289,9 +299,14 @@ void reset_cpu(ulong addr)
 		writel(WDT_MODE_RESET_EN | WDT_MODE_EN, &wdog->mode);
 	}
 #elif defined(CONFIG_SUNXI_GEN_SUN6I) || defined(CONFIG_MACH_SUN50I_H6)
+#if defined(CONFIG_MACH_SUN50I_H6)
+	/* WDOG is broken for some H6 rev. use the R_WDOG instead */
 	static const struct sunxi_wdog *wdog =
-		 ((struct sunxi_timer_reg *)SUNXI_TIMER_BASE)->wdog;
-
+		(struct sunxi_wdog *)SUNXI_R_WDOG_BASE;
+#else
+	static const struct sunxi_wdog *wdog =
+		((struct sunxi_timer_reg *)SUNXI_TIMER_BASE)->wdog;
+#endif
 	/* Set the watchdog for its shortest interval (.5s) and wait */
 	writel(WDT_CFG_RESET, &wdog->cfg);
 	writel(WDT_MODE_EN, &wdog->mode);
@@ -300,7 +315,7 @@ void reset_cpu(ulong addr)
 #endif
 }
 
-#if !defined(CONFIG_SYS_DCACHE_OFF) && !defined(CONFIG_ARM64)
+#if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF) && !defined(CONFIG_ARM64)
 void enable_caches(void)
 {
 	/* Enable D-cache. I-cache is already enabled in start.S */

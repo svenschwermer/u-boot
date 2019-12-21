@@ -42,11 +42,8 @@
 #define CONFIG_SYS_MXC_I2C3_SPEED	400000
 
 /* MMC Configs */
-#define CONFIG_FSL_USDHC
 #define CONFIG_SYS_FSL_ESDHC_ADDR	0
 #define CONFIG_SYS_FSL_USDHC_NUM	3
-
-#define CONFIG_SUPPORT_EMMC_BOOT	/* eMMC specific */
 
 /*
  * SATA Configs
@@ -60,9 +57,8 @@
 #define IMX_FEC_BASE			ENET_BASE_ADDR
 #define CONFIG_FEC_XCV_TYPE		RGMII
 #define CONFIG_ETHPRIME			"FEC"
+#define PHY_ANEG_TIMEOUT		15000 /* PHY needs longer aneg time */
 #define CONFIG_FEC_MXC_PHYADDR		6
-#define CONFIG_IP_DEFRAG
-#define CONFIG_TFTP_BLOCKSIZE		4096
 #define CONFIG_TFTP_TSIZE
 
 /* USB Configs */
@@ -105,6 +101,7 @@
 
 #ifndef CONFIG_SPL_BUILD
 #define BOOT_TARGET_DEVICES(func) \
+	func(MMC, mmc, 0) \
 	func(MMC, mmc, 1) \
 	func(MMC, mmc, 2) \
 	func(USB, usb, 0) \
@@ -125,16 +122,21 @@
 	"imx6q-apalis-cam-eval.dtb fat 0 1"
 
 #define EMMC_BOOTCMD \
-	"emmcargs=ip=off root=/dev/mmcblk0p2 rw,noatime rootfstype=ext4 " \
-		"rootwait\0" \
-	"emmcboot=run setup; " \
+	"set_emmcargs=setenv emmcargs ip=off root=PARTUUID=${uuid} " \
+		"ro,noatime rootfstype=ext4 rootwait\0" \
+	"emmcboot=run setup; run emmcfinduuid; run set_emmcargs; " \
 		"setenv bootargs ${defargs} ${emmcargs} ${setupargs} " \
 		"${vidargs}; echo Booting from internal eMMC chip...; "	\
-		"run emmcdtbload; load mmc 0:1 ${kernel_addr_r} " \
-		"${boot_file} && run fdt_fixup && " \
+		"run emmcdtbload; load mmc ${emmcdev}:${emmcbootpart} " \
+		"${kernel_addr_r} ${boot_file} && run fdt_fixup && " \
 		"bootz ${kernel_addr_r} ${dtbparam}\0" \
-	"emmcdtbload=setenv dtbparam; load mmc 0:1 ${fdt_addr_r} " \
-		"${fdt_file} && setenv dtbparam \" - ${fdt_addr_r}\" && true\0"
+	"emmcbootpart=1\0" \
+	"emmcdev=0\0" \
+	"emmcdtbload=setenv dtbparam; load mmc ${emmcdev}:${emmcbootpart} " \
+		"${fdt_addr_r} ${fdt_file} && " \
+		"setenv dtbparam \" - ${fdt_addr_r}\" && true\0" \
+	"emmcfinduuid=part uuid mmc ${mmcdev}:${emmcrootpart} uuid\0" \
+	"emmcrootpart=2\0"
 
 #define MEM_LAYOUT_ENV_SETTINGS \
 	"bootm_size=0x20000000\0" \
@@ -147,7 +149,7 @@
 	"scriptaddr=0x17000000\0"
 
 #define NFS_BOOTCMD \
-	"nfsargs=ip=:::::eth0:on root=/dev/nfs rw\0" \
+	"nfsargs=ip=:::::eth0:on root=/dev/nfs ro\0" \
 	"nfsboot=run setup; " \
 		"setenv bootargs ${defargs} ${nfsargs} ${setupargs} " \
 		"${vidargs}; echo Booting via DHCP/TFTP/NFS...; " \
@@ -155,29 +157,6 @@
 		"&& run fdt_fixup && bootz ${kernel_addr_r} ${dtbparam}\0" \
 	"nfsdtbload=setenv dtbparam; tftp ${fdt_addr_r} ${fdt_file} " \
 		"&& setenv dtbparam \" - ${fdt_addr_r}\" && true\0"
-
-#define SD_BOOTCMD \
-	"sdargs=ip=off root=/dev/mmcblk1p2 rw,noatime rootfstype=ext4 " \
-		"rootwait\0" \
-	"sdboot=run setup; " \
-		"setenv bootargs ${defargs} ${sdargs} ${setupargs} " \
-		"${vidargs}; echo Booting from SD card; " \
-		"run sddtbload; load mmc 1:1 ${kernel_addr_r} " \
-		"${boot_file} && run fdt_fixup && " \
-		"bootz ${kernel_addr_r} ${dtbparam}\0" \
-	"sddtbload=setenv dtbparam; load mmc 1:1 ${fdt_addr_r} " \
-		"${fdt_file} && setenv dtbparam \" - ${fdt_addr_r}\" && true\0"
-
-#define USB_BOOTCMD \
-	"usbargs=ip=off root=/dev/sda2 rw,noatime rootfstype=ext4 " \
-		"rootwait\0" \
-	"usbboot=run setup; setenv bootargs ${defargs} ${setupargs} " \
-		"${usbargs} ${vidargs}; echo Booting from USB stick...; " \
-		"usb start && run usbdtbload; load usb 0:1 ${kernel_addr_r} " \
-		"${boot_file} && run fdt_fixup && " \
-		"bootz ${kernel_addr_r} ${dtbparam}\0" \
-	"usbdtbload=setenv dtbparam; load usb 0:1 ${fdt_addr_r} " \
-		"${fdt_file} && setenv dtbparam \" - ${fdt_addr_r}\" && true\0"
 
 #ifndef CONFIG_TDX_APALIS_IMX6_V1_0
 #define FDT_FILE "imx6q-apalis-eval.dtb"
@@ -187,8 +166,7 @@
 #endif
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	BOOTENV \
-	"bootcmd=run emmcboot ; echo ; echo emmcboot failed ; " \
-		"run distro_bootcmd ; " \
+	"bootcmd=setenv fdtfile ${fdt_file}; run distro_bootcmd ; " \
 		"usb start ; " \
 		"setenv stdout serial,vga ; setenv stdin serial,usbkbd\0" \
 	"boot_file=zImage\0" \
@@ -200,7 +178,6 @@
 	"fdt_fixup=;\0" \
 	MEM_LAYOUT_ENV_SETTINGS \
 	NFS_BOOTCMD \
-	SD_BOOTCMD \
 	"setethupdate=if env exists ethaddr; then; else setenv ethaddr " \
 		"00:14:2d:00:00:00; fi; tftpboot ${loadaddr} " \
 		"flash_eth.img && source ${loadaddr}\0" \
@@ -217,6 +194,7 @@
 		"load ${interface} ${drive}:1 ${loadaddr} flash_blk.img && " \
 		"source ${loadaddr}\0" \
 	"splashpos=m,m\0" \
+	"splashimage=" __stringify(CONFIG_LOADADDR) "\0" \
 	"vidargs=mxc_hdmi.only_cea=1 " \
 		"video=mxcfb0:dev=hdmi,1920x1080M@60,if=RGB24 " \
 		"video=mxcfb1:off video=mxcfb2:off video=mxcfb3:off " \
@@ -247,12 +225,9 @@
 	(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
 
 /* environment organization */
-#define CONFIG_ENV_SIZE			(8 * 1024)
 
 #if defined(CONFIG_ENV_IS_IN_MMC)
 /* Environment in eMMC, before config block at the end of 1st "boot sector" */
-#define CONFIG_ENV_OFFSET		(-CONFIG_ENV_SIZE + \
-					 CONFIG_TDX_CFG_BLOCK_OFFSET)
 #define CONFIG_SYS_MMC_ENV_DEV		0
 #define CONFIG_SYS_MMC_ENV_PART		1
 #endif

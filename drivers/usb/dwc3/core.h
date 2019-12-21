@@ -162,6 +162,18 @@
 /* Global USB2 PHY Configuration Register */
 #define DWC3_GUSB2PHYCFG_PHYSOFTRST	(1 << 31)
 #define DWC3_GUSB2PHYCFG_SUSPHY		(1 << 6)
+#define DWC3_GUSB2PHYCFG_PHYIF		BIT(3)
+
+/* Global USB2 PHY Configuration Mask */
+#define DWC3_GUSB2PHYCFG_USBTRDTIM_MASK		(0xf << 10)
+
+/* Global USB2 PHY Configuration Offset */
+#define DWC3_GUSB2PHYCFG_USBTRDTIM_OFFSET	10
+
+#define DWC3_GUSB2PHYCFG_USBTRDTIM_16BIT	(0x5 << \
+		DWC3_GUSB2PHYCFG_USBTRDTIM_OFFSET)
+#define DWC3_GUSB2PHYCFG_USBTRDTIM_8BIT		(0x9 << \
+		DWC3_GUSB2PHYCFG_USBTRDTIM_OFFSET)
 
 /* Global USB3 PIPE Control Register */
 #define DWC3_GUSB3PIPECTL_PHYSOFTRST	(1 << 31)
@@ -991,18 +1003,14 @@ struct dwc3_gadget_ep_cmd_params {
 
 /* prototypes */
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc);
+void dwc3_of_parse(struct dwc3 *dwc);
 int dwc3_init(struct dwc3 *dwc);
 void dwc3_remove(struct dwc3 *dwc);
 
-#ifdef CONFIG_USB_DWC3_HOST
-int dwc3_host_init(struct dwc3 *dwc);
-void dwc3_host_exit(struct dwc3 *dwc);
-#else
 static inline int dwc3_host_init(struct dwc3 *dwc)
 { return 0; }
 static inline void dwc3_host_exit(struct dwc3 *dwc)
 { }
-#endif
 
 #ifdef CONFIG_USB_DWC3_GADGET
 int dwc3_gadget_init(struct dwc3 *dwc);

@@ -39,7 +39,7 @@ int ofnode_read_u32(ofnode node, const char *propname, u32 *outp)
 	return 0;
 }
 
-int ofnode_read_u32_default(ofnode node, const char *propname, u32 def)
+u32 ofnode_read_u32_default(ofnode node, const char *propname, u32 def)
 {
 	assert(ofnode_valid(node));
 	ofnode_read_u32(node, propname, &def);
@@ -57,7 +57,7 @@ int ofnode_read_s32_default(ofnode node, const char *propname, s32 def)
 
 int ofnode_read_u64(ofnode node, const char *propname, u64 *outp)
 {
-	const fdt64_t *cell;
+	const unaligned_fdt64_t *cell;
 	int len;
 
 	assert(ofnode_valid(node));
@@ -79,7 +79,7 @@ int ofnode_read_u64(ofnode node, const char *propname, u64 *outp)
 	return 0;
 }
 
-int ofnode_read_u64_default(ofnode node, const char *propname, u64 def)
+u64 ofnode_read_u64_default(ofnode node, const char *propname, u64 def)
 {
 	assert(ofnode_valid(node));
 	ofnode_read_u64(node, propname, &def);
@@ -212,7 +212,11 @@ ofnode ofnode_get_parent(ofnode node)
 
 const char *ofnode_get_name(ofnode node)
 {
-	assert(ofnode_valid(node));
+	if (!ofnode_valid(node)) {
+		debug("%s node not valid\n", __func__);
+		return NULL;
+	}
+
 	if (ofnode_is_np(node))
 		return strrchr(node.np->full_name, '/') + 1;
 
@@ -251,18 +255,21 @@ int ofnode_read_size(ofnode node, const char *propname)
 	return -EINVAL;
 }
 
-fdt_addr_t ofnode_get_addr_index(ofnode node, int index)
+fdt_addr_t ofnode_get_addr_size_index(ofnode node, int index, fdt_size_t *size)
 {
 	int na, ns;
 
 	if (ofnode_is_np(node)) {
 		const __be32 *prop_val;
+		u64 size64;
 		uint flags;
 
-		prop_val = of_get_address(ofnode_to_np(node), index,
-					  NULL, &flags);
+		prop_val = of_get_address(ofnode_to_np(node), index, &size64,
+					  &flags);
 		if (!prop_val)
 			return FDT_ADDR_T_NONE;
+		if (size)
+			*size = size64;
 
 		ns = of_n_size_cells(ofnode_to_np(node));
 
@@ -277,10 +284,17 @@ fdt_addr_t ofnode_get_addr_index(ofnode node, int index)
 		ns = ofnode_read_simple_size_cells(ofnode_get_parent(node));
 		return fdtdec_get_addr_size_fixed(gd->fdt_blob,
 						  ofnode_to_offset(node), "reg",
-						  index, na, ns, NULL, true);
+						  index, na, ns, size, true);
 	}
 
 	return FDT_ADDR_T_NONE;
+}
+
+fdt_addr_t ofnode_get_addr_index(ofnode node, int index)
+{
+	fdt_size_t size;
+
+	return ofnode_get_addr_size_index(node, index, &size);
 }
 
 fdt_addr_t ofnode_get_addr(ofnode node)
@@ -546,7 +560,7 @@ fdt_addr_t ofnode_get_addr_size(ofnode node, const char *property,
 		ns = of_n_size_cells(np);
 		*sizep = of_read_number(prop + na, ns);
 
-		if (IS_ENABLED(CONFIG_OF_TRANSLATE) && ns > 0)
+		if (CONFIG_IS_ENABLED(OF_TRANSLATE) && ns > 0)
 			return of_translate_address(np, prop);
 		else
 			return of_read_number(prop, na);
@@ -606,7 +620,7 @@ int ofnode_read_pci_addr(ofnode node, enum fdt_pci_space type,
 			if ((fdt32_to_cpu(*cell) & type) == type) {
 				addr->phys_hi = fdt32_to_cpu(cell[0]);
 				addr->phys_mid = fdt32_to_cpu(cell[1]);
-				addr->phys_lo = fdt32_to_cpu(cell[1]);
+				addr->phys_lo = fdt32_to_cpu(cell[2]);
 				break;
 			}
 
@@ -763,6 +777,14 @@ u64 ofnode_translate_address(ofnode node, const fdt32_t *in_addr)
 		return fdt_translate_address(gd->fdt_blob, ofnode_to_offset(node), in_addr);
 }
 
+u64 ofnode_translate_dma_address(ofnode node, const fdt32_t *in_addr)
+{
+	if (ofnode_is_np(node))
+		return of_translate_dma_address(ofnode_to_np(node), in_addr);
+	else
+		return fdt_translate_dma_address(gd->fdt_blob, ofnode_to_offset(node), in_addr);
+}
+
 int ofnode_device_is_compatible(ofnode node, const char *compat)
 {
 	if (ofnode_is_np(node))
@@ -869,5 +891,5 @@ int ofnode_set_enabled(ofnode node, bool value)
 	if (value)
 		return ofnode_write_string(node, "status", "okay");
 	else
-		return ofnode_write_string(node, "status", "disable");
+		return ofnode_write_string(node, "status", "disabled");
 }

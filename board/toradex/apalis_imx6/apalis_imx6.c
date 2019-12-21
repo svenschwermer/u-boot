@@ -8,6 +8,7 @@
 
 #include <common.h>
 #include <dm.h>
+#include <init.h>
 
 #include <ahci.h>
 #include <asm/arch/clock.h>
@@ -26,8 +27,8 @@
 #include <dm/device-internal.h>
 #include <dm/platform_data/serial_mxc.h>
 #include <dwc_ahsata.h>
-#include <environment.h>
-#include <fsl_esdhc.h>
+#include <env.h>
+#include <fsl_esdhc_imx.h>
 #include <imx_thermal.h>
 #include <micrel.h>
 #include <miiphy.h>
@@ -88,7 +89,7 @@ iomux_v3_cfg_t const uart1_pads_dte[] = {
 	MX6_PAD_CSI0_DAT11__UART1_TX_DATA | MUX_PAD_CTRL(UART_PAD_CTRL),
 };
 
-#if defined(CONFIG_FSL_ESDHC) && defined(CONFIG_SPL_BUILD)
+#if defined(CONFIG_FSL_ESDHC_IMX) && defined(CONFIG_SPL_BUILD)
 /* Apalis MMC1 */
 iomux_v3_cfg_t const usdhc1_pads[] = {
 	MX6_PAD_SD1_CLK__SD1_CLK   | MUX_PAD_CTRL(USDHC_PAD_CTRL),
@@ -131,7 +132,7 @@ iomux_v3_cfg_t const usdhc3_pads[] = {
 	MX6_PAD_SD3_DAT7__SD3_DATA7 | MUX_PAD_CTRL(USDHC_EMMC_PAD_CTRL),
 	MX6_PAD_SD3_RST__GPIO7_IO08 | MUX_PAD_CTRL(WEAK_PULLUP) | MUX_MODE_SION,
 };
-#endif /* CONFIG_FSL_ESDHC & CONFIG_SPL_BUILD */
+#endif /* CONFIG_FSL_ESDHC_IMX & CONFIG_SPL_BUILD */
 
 int mx6_rgmii_rework(struct phy_device *phydev)
 {
@@ -285,7 +286,7 @@ int board_ehci_hcd_init(int port)
 }
 #endif
 
-#if defined(CONFIG_FSL_ESDHC) && defined(CONFIG_SPL_BUILD)
+#if defined(CONFIG_FSL_ESDHC_IMX) && defined(CONFIG_SPL_BUILD)
 /* use the following sequence: eMMC, MMC1, SD1 */
 struct fsl_esdhc_cfg usdhc_cfg[CONFIG_SYS_FSL_USDHC_NUM] = {
 	{USDHC3_BASE_ADDR},
@@ -355,7 +356,7 @@ int board_mmc_init(bd_t *bis)
 
 	return fsl_esdhc_initialize(bis, &usdhc_cfg[0]);
 }
-#endif /* CONFIG_FSL_ESDHC & CONFIG_SPL_BUILD */
+#endif /* CONFIG_FSL_ESDHC_IMX & CONFIG_SPL_BUILD */
 
 int board_phy_config(struct phy_device *phydev)
 {
@@ -1116,6 +1117,16 @@ void board_init_f(ulong dummy)
 	board_init_r(NULL, 0);
 }
 
+#ifdef CONFIG_SPL_LOAD_FIT
+int board_fit_config_name_match(const char *name)
+{
+	if (!strcmp(name, "imx6-apalis"))
+		return 0;
+
+	return -1;
+}
+#endif
+
 void reset_cpu(ulong addr)
 {
 }
@@ -1131,52 +1142,3 @@ U_BOOT_DEVICE(mxc_serial) = {
 	.name = "serial_mxc",
 	.platdata = &mxc_serial_plat,
 };
-
-#if CONFIG_IS_ENABLED(AHCI)
-static int sata_imx_probe(struct udevice *dev)
-{
-	int i, err;
-
-	for (i = 0; i < APALIS_IMX6_SATA_INIT_RETRIES; i++) {
-		err = setup_sata();
-		if (err) {
-			printf("SATA setup failed: %d\n", err);
-			return err;
-		}
-
-		udelay(100);
-
-		err = dwc_ahsata_probe(dev);
-		if (!err)
-			break;
-
-		/* There is no device on the SATA port */
-		if (sata_dm_port_status(0, 0) == 0)
-			break;
-
-		/* There's a device, but link not established. Retry */
-		device_remove(dev, DM_REMOVE_NORMAL);
-	}
-
-	return 0;
-}
-
-struct ahci_ops sata_imx_ops = {
-	.port_status = dwc_ahsata_port_status,
-	.reset	= dwc_ahsata_bus_reset,
-	.scan	= dwc_ahsata_scan,
-};
-
-static const struct udevice_id sata_imx_ids[] = {
-	{ .compatible = "fsl,imx6q-ahci" },
-	{ }
-};
-
-U_BOOT_DRIVER(sata_imx) = {
-	.name		= "dwc_ahci",
-	.id		= UCLASS_AHCI,
-	.of_match	= sata_imx_ids,
-	.ops		= &sata_imx_ops,
-	.probe		= sata_imx_probe,
-};
-#endif /* AHCI */

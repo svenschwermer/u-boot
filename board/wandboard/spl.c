@@ -14,13 +14,12 @@
 #include <asm/mach-imx/iomux-v3.h>
 #include <asm/mach-imx/video.h>
 #include <mmc.h>
-#include <fsl_esdhc.h>
+#include <fsl_esdhc_imx.h>
 #include <asm/arch/crm_regs.h>
 #include <asm/io.h>
 #include <asm/arch/sys_proto.h>
 #include <spl.h>
 
-#if defined(CONFIG_SPL_BUILD)
 #include <asm/arch/mx6-ddr.h>
 /*
  * Driving strength:
@@ -513,5 +512,3 @@ int board_mmc_init(bd_t *bis)
 
 	return 0;
 }
-
-#endif

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright 2016 Freescale Semiconductor
+ * Copyright 2019 NXP
  */
 
 #ifndef __LS1046A_COMMON_H
@@ -72,7 +73,7 @@
 					CONFIG_SPL_BSS_MAX_SIZE)
 #define CONFIG_SYS_SPL_MALLOC_SIZE	0x100000
 
-#ifdef CONFIG_SECURE_BOOT
+#ifdef CONFIG_NXP_ESBC
 #define CONFIG_U_BOOT_HDR_SIZE				(16 << 10)
 /*
  * HDR would be appended at end of image and copied to DDR along
@@ -83,7 +84,7 @@
 #define CONFIG_SYS_MONITOR_LEN		(0x100000 + CONFIG_U_BOOT_HDR_SIZE)
 #else
 #define CONFIG_SYS_MONITOR_LEN		0x100000
-#endif /* ifdef CONFIG_SECURE_BOOT */
+#endif /* ifdef CONFIG_NXP_ESBC */
 #endif
 
 #if defined(CONFIG_QSPI_BOOT) && defined(CONFIG_SPL)
@@ -174,16 +175,12 @@
  * about 1MB (2048 blocks), Env is stored after the image, and the env size is
  * 0x2000 (16 blocks), 8 + 2048 + 16 = 2072, enlarge it to 18432(0x4800).
  */
-#define CONFIG_SYS_QE_FMAN_FW_IN_MMC
 #define CONFIG_SYS_FMAN_FW_ADDR		(512 * 0x4800)
 #elif defined(CONFIG_QSPI_BOOT)
-#define CONFIG_SYS_QE_FW_IN_SPIFLASH
 #define CONFIG_SYS_FMAN_FW_ADDR		0x40900000
 #elif defined(CONFIG_NAND_BOOT)
-#define CONFIG_SYS_QE_FMAN_FW_IN_NAND
 #define CONFIG_SYS_FMAN_FW_ADDR		(36 * CONFIG_SYS_NAND_BLOCK_SIZE)
 #else
-#define CONFIG_SYS_QE_FMAN_FW_IN_NOR
 #define CONFIG_SYS_FMAN_FW_ADDR		0x60900000
 #endif
 #endif
@@ -206,6 +203,15 @@
 #include <config_distro_bootcmd.h>
 #endif
 
+#if defined(CONFIG_TARGET_LS1046AFRWY)
+#define LS1046A_BOOT_SRC_AND_HDR\
+	"boot_scripts=ls1046afrwy_boot.scr\0"	\
+	"boot_script_hdr=hdr_ls1046afrwy_bs.out\0"
+#else
+#define LS1046A_BOOT_SRC_AND_HDR\
+	"boot_scripts=ls1046ardb_boot.scr\0"	\
+	"boot_script_hdr=hdr_ls1046ardb_bs.out\0"
+#endif
 #ifndef SPL_NO_MISC
 /* Initial environment variables */
 #define CONFIG_EXTRA_ENV_SETTINGS		\
@@ -236,8 +242,7 @@
 	"console=ttyS0,115200\0"                \
 	 CONFIG_MTDPARTS_DEFAULT "\0"		\
 	BOOTENV					\
-	"boot_scripts=ls1046ardb_boot.scr\0"    \
-	"boot_script_hdr=hdr_ls1046ardb_bs.out\0"	\
+	LS1046A_BOOT_SRC_AND_HDR		\
 	"scan_dev_for_boot_part="               \
 		"part list ${devtype} ${devnum} devplist; "   \
 		"env exists devplist || setenv devplist 1; "  \
@@ -253,8 +258,9 @@
 			"${scriptaddr} ${prefix}${script}; "    \
 		"env exists secureboot && load ${devtype} "     \
 			"${devnum}:${distro_bootpart} "		\
-			"${scripthdraddr} ${prefix}${boot_script_hdr} " \
-			"&& esbc_validate ${scripthdraddr};"    \
+			"${scripthdraddr} ${prefix}${boot_script_hdr}; " \
+			"env exists secureboot "	\
+			"&& esbc_validate ${scripthdraddr};"	\
 		"source ${scriptaddr}\0"	  \
 	"qspi_bootcmd=echo Trying load from qspi..;"      \
 		"sf probe && sf read $load_addr "         \

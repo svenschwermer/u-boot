@@ -19,9 +19,6 @@
 #define CONFIG_MXC_UART_BASE	UART3_BASE
 #define CONSOLE_DEV	"ttymxc2"
 
-#define CONFIG_SUPPORT_EMMC_BOOT
-
-
 #include "mx6_common.h"
 #include <linux/sizes.h>
 
@@ -30,8 +27,6 @@
 #define CONFIG_INITRD_TAG
 #define CONFIG_REVISION_TAG
 #define CONFIG_SYS_MALLOC_LEN		(10 * SZ_1M)
-
-#define CONFIG_WATCHDOG_TIMEOUT_MSECS 6000
 
 #define CONFIG_MXC_UART
 
@@ -189,9 +184,6 @@
 	(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
 
 /* environment organization */
-#define CONFIG_ENV_SIZE		(8 * 1024)
-#define CONFIG_ENV_OFFSET		(768 * 1024)
-#define CONFIG_ENV_SECT_SIZE		(64 * 1024)
 
 #define CONFIG_SYS_FSL_USDHC_NUM	3
 
@@ -201,7 +193,6 @@
 #define CONFIG_IMX_VIDEO_SKIP
 #define CONFIG_CMD_BMP
 
-#define CONFIG_PWM_IMX
 #define CONFIG_IMX6_PWM_PER_CLK	66000000
 
 #define CONFIG_PCI

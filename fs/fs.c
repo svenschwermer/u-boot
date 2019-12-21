@@ -6,6 +6,7 @@
 #include <config.h>
 #include <errno.h>
 #include <common.h>
+#include <env.h>
 #include <mapmem.h>
 #include <part.h>
 #include <ext4fs.h>
@@ -17,6 +18,7 @@
 #include <asm/io.h>
 #include <div64.h>
 #include <linux/math64.h>
+#include <efi_loader.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -306,6 +308,19 @@ static struct fstype_info *fs_get_info(int fstype)
 }
 
 /**
+ * fs_get_type() - Get type of current filesystem
+ *
+ * Return: filesystem type
+ *
+ * Returns filesystem type representing the current filesystem, or
+ * FS_TYPE_ANY for any unrecognised filesystem.
+ */
+int fs_get_type(void)
+{
+	return fs_type;
+}
+
+/**
  * fs_get_type_name() - Get type of current filesystem
  *
  * Return: Pointer to filesystem name
@@ -387,7 +402,7 @@ int fs_set_blk_dev_with_part(struct blk_desc *desc, int part)
 	return -1;
 }
 
-static void fs_close(void)
+void fs_close(void)
 {
 	struct fstype_info *info = fs_get_info(fs_type);
 
@@ -411,7 +426,6 @@ int fs_ls(const char *dirname)
 
 	ret = info->ls(dirname);
 
-	fs_type = FS_TYPE_ANY;
 	fs_close();
 
 	return ret;
@@ -595,7 +609,6 @@ int fs_unlink(const char *filename)
 
 	ret = info->unlink(filename);
 
-	fs_type = FS_TYPE_ANY;
 	fs_close();
 
 	return ret;
@@ -609,7 +622,6 @@ int fs_mkdir(const char *dirname)
 
 	ret = info->mkdir(dirname);
 
-	fs_type = FS_TYPE_ANY;
 	fs_close();
 
 	return ret;
@@ -700,6 +712,10 @@ int do_load(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
 	else
 		pos = 0;
 
+#ifdef CONFIG_CMD_BOOTEFI
+	efi_set_bootdev(argv[1], (argc > 2) ? argv[2] : "",
+			(argc > 4) ? argv[4] : "");
+#endif
 	time = get_timer(0);
 	ret = _fs_read(filename, addr, pos, bytes, 1, &len_read);
 	time = get_timer(time);

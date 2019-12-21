@@ -6,6 +6,7 @@
  * B&R Industrial Automation GmbH - http://www.br-automation.com/ *
  */
 #include <common.h>
+#include <env.h>
 #include <errno.h>
 #include <i2c.h>
 #include <dm/uclass.h>
@@ -64,6 +65,7 @@ static int resetc_init(void)
 		return -1;
 	}
 
+	resetc.is_psoc = 1;
 	rc = dm_i2c_probe(i2cbus,
 			  RSTCTRL_ADDR_PSOC, 0, &resetc.i2cdev);
 	if (rc) {

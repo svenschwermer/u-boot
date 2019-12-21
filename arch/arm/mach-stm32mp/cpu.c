@@ -4,8 +4,9 @@
  */
 #include <common.h>
 #include <clk.h>
+#include <cpu_func.h>
 #include <debug_uart.h>
-#include <environment.h>
+#include <env.h>
 #include <misc.h>
 #include <asm/io.h>
 #include <asm/arch/stm32.h>
@@ -77,11 +78,6 @@
  */
 #define PKG_SHIFT	27
 #define PKG_MASK	GENMASK(2, 0)
-
-#define PKG_AA_LBGA448	4
-#define PKG_AB_LBGA354	3
-#define PKG_AC_TFBGA361	2
-#define PKG_AD_TFBGA257	1
 
 #if !defined(CONFIG_SPL) || defined(CONFIG_SPL_BUILD)
 #ifndef CONFIG_STM32MP1_TRUSTED
@@ -277,7 +273,7 @@ u32 get_cpu_type(void)
 }
 
 /* Get Package options from OTP */
-static u32 get_cpu_package(void)
+u32 get_cpu_package(void)
 {
 	return get_otp(BSEC_OTP_PKG, PKG_SHIFT, PKG_MASK);
 }
@@ -366,7 +362,7 @@ static void setup_boot_mode(void)
 	u32 boot_ctx = readl(TAMP_BOOT_CONTEXT);
 	u32 boot_mode =
 		(boot_ctx & TAMP_BOOT_MODE_MASK) >> TAMP_BOOT_MODE_SHIFT;
-	int instance = (boot_mode & TAMP_BOOT_INSTANCE_MASK) - 1;
+	unsigned int instance = (boot_mode & TAMP_BOOT_INSTANCE_MASK) - 1;
 	u32 forced_mode = (boot_ctx & TAMP_BOOT_FORCED_MASK);
 	struct udevice *dev;
 	int alias;
@@ -481,7 +477,7 @@ static int setup_mac_address(void)
 		enetaddr[i] = ((uint8_t *)&otp)[i];
 
 	if (!is_valid_ethaddr(enetaddr)) {
-		pr_err("invalid MAC address in OTP %pM", enetaddr);
+		pr_err("invalid MAC address in OTP %pM\n", enetaddr);
 		return -EINVAL;
 	}
 	pr_debug("OTP MAC address = %pM\n", enetaddr);

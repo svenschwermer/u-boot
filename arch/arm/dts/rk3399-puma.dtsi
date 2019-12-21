@@ -492,7 +492,6 @@
 };
 
 &sdmmc {
-	u-boot,dm-pre-reloc;
 	clock-frequency = <150000000>;
 	max-frequency = <40000000>;
 	supports-sd;
@@ -640,7 +639,6 @@
 };
 
 &uart0 {
-	u-boot,dm-pre-reloc;
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_xfer &uart0_cts>;
 	status = "okay";
@@ -648,8 +646,6 @@
 
 
 &spi1 {
-	u-boot,dm-pre-reloc;
-
 	status = "okay";
 
 	#address-cells = <1>;

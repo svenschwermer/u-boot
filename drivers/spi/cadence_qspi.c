@@ -5,6 +5,7 @@
  */
 
 #include <common.h>
+#include <clk.h>
 #include <dm.h>
 #include <fdtdec.h>
 #include <malloc.h>
@@ -18,18 +19,16 @@
 #define CQSPI_INDIRECT_READ		2
 #define CQSPI_INDIRECT_WRITE		3
 
-DECLARE_GLOBAL_DATA_PTR;
-
 static int cadence_spi_write_speed(struct udevice *bus, uint hz)
 {
 	struct cadence_spi_platdata *plat = bus->platdata;
 	struct cadence_spi_priv *priv = dev_get_priv(bus);
 
 	cadence_qspi_apb_config_baudrate_div(priv->regbase,
-					     CONFIG_CQSPI_REF_CLK, hz);
+					     plat->ref_clk_hz, hz);
 
 	/* Reconfigure delay timing if speed is changed. */
-	cadence_qspi_apb_delay(priv->regbase, CONFIG_CQSPI_REF_CLK, hz,
+	cadence_qspi_apb_delay(priv->regbase, plat->ref_clk_hz, hz,
 			       plat->tshsl_ns, plat->tsd2d_ns,
 			       plat->tchsh_ns, plat->tslch_ns);
 
@@ -295,36 +294,53 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 static int cadence_spi_ofdata_to_platdata(struct udevice *bus)
 {
 	struct cadence_spi_platdata *plat = bus->platdata;
-	const void *blob = gd->fdt_blob;
-	int node = dev_of_offset(bus);
-	int subnode;
+	ofnode subnode;
+	struct clk clk;
+	int ret;
 
 	plat->regbase = (void *)devfdt_get_addr_index(bus, 0);
 	plat->ahbbase = (void *)devfdt_get_addr_index(bus, 1);
-	plat->is_decoded_cs = fdtdec_get_bool(blob, node, "cdns,is-decoded-cs");
-	plat->fifo_depth = fdtdec_get_uint(blob, node, "cdns,fifo-depth", 128);
-	plat->fifo_width = fdtdec_get_uint(blob, node, "cdns,fifo-width", 4);
-	plat->trigger_address = fdtdec_get_uint(blob, node,
-						"cdns,trigger-address", 0);
+	plat->is_decoded_cs = dev_read_bool(bus, "cdns,is-decoded-cs");
+	plat->fifo_depth = dev_read_u32_default(bus, "cdns,fifo-depth", 128);
+	plat->fifo_width = dev_read_u32_default(bus, "cdns,fifo-width", 4);
+	plat->trigger_address = dev_read_u32_default(bus,
+						     "cdns,trigger-address",
+						     0);
 
 	/* All other paramters are embedded in the child node */
-	subnode = fdt_first_subnode(blob, node);
-	if (subnode < 0) {
+	subnode = dev_read_first_subnode(bus);
+	if (!ofnode_valid(subnode)) {
 		printf("Error: subnode with SPI flash config missing!\n");
 		return -ENODEV;
 	}
 
 	/* Use 500 KHz as a suitable default */
-	plat->max_hz = fdtdec_get_uint(blob, subnode, "spi-max-frequency",
-				       500000);
+	plat->max_hz = ofnode_read_u32_default(subnode, "spi-max-frequency",
+					       500000);
 
 	/* Read other parameters from DT */
-	plat->page_size = fdtdec_get_uint(blob, subnode, "page-size", 256);
-	plat->block_size = fdtdec_get_uint(blob, subnode, "block-size", 16);
-	plat->tshsl_ns = fdtdec_get_uint(blob, subnode, "cdns,tshsl-ns", 200);
-	plat->tsd2d_ns = fdtdec_get_uint(blob, subnode, "cdns,tsd2d-ns", 255);
-	plat->tchsh_ns = fdtdec_get_uint(blob, subnode, "cdns,tchsh-ns", 20);
-	plat->tslch_ns = fdtdec_get_uint(blob, subnode, "cdns,tslch-ns", 20);
+	plat->page_size = ofnode_read_u32_default(subnode, "page-size", 256);
+	plat->block_size = ofnode_read_u32_default(subnode, "block-size", 16);
+	plat->tshsl_ns = ofnode_read_u32_default(subnode, "cdns,tshsl-ns",
+						 200);
+	plat->tsd2d_ns = ofnode_read_u32_default(subnode, "cdns,tsd2d-ns",
+						 255);
+	plat->tchsh_ns = ofnode_read_u32_default(subnode, "cdns,tchsh-ns", 20);
+	plat->tslch_ns = ofnode_read_u32_default(subnode, "cdns,tslch-ns", 20);
+
+	ret = clk_get_by_index(bus, 0, &clk);
+	if (ret) {
+#ifdef CONFIG_CQSPI_REF_CLK
+		plat->ref_clk_hz = CONFIG_CQSPI_REF_CLK;
+#else
+		return ret;
+#endif
+	} else {
+		plat->ref_clk_hz = clk_get_rate(&clk);
+		clk_free(&clk);
+		if (IS_ERR_VALUE(plat->ref_clk_hz))
+			return plat->ref_clk_hz;
+	}
 
 	debug("%s: regbase=%p ahbbase=%p max-frequency=%d page-size=%d\n",
 	      __func__, plat->regbase, plat->ahbbase, plat->max_hz,

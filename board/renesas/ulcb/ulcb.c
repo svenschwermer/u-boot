@@ -68,21 +68,6 @@ int board_init(void)
 	return 0;
 }
 
-int dram_init(void)
-{
-	if (fdtdec_setup_mem_size_base() != 0)
-		return -EINVAL;
-
-	return 0;
-}
-
-int dram_init_banksize(void)
-{
-	fdtdec_setup_memory_banksize();
-
-	return 0;
-}
-
 #ifdef CONFIG_MULTI_DTB_FIT
 int board_fit_config_name_match(const char *name)
 {

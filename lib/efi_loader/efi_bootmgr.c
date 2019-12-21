@@ -27,7 +27,15 @@ static const struct efi_runtime_services *rs;
  */
 
 
-/* Parse serialized data and transform it into efi_load_option structure */
+/**
+ * efi_deserialize_load_option() - parse serialized data
+ *
+ * Parse serialized data describing a load option and transform it to the
+ * efi_load_option structure.
+ *
+ * @lo:		pointer to target
+ * @data:	serialized data
+ */
 void efi_deserialize_load_option(struct efi_load_option *lo, u8 *data)
 {
 	lo->attributes = get_unaligned_le32(data);
@@ -47,25 +55,31 @@ void efi_deserialize_load_option(struct efi_load_option *lo, u8 *data)
 	lo->optional_data = data;
 }
 
-/*
+/**
+ * efi_serialize_load_option() - serialize load option
+ *
  * Serialize efi_load_option structure into byte stream for BootXXXX.
- * Return a size of allocated data.
+ *
+ * @data:	buffer for serialized data
+ * @lo:		load option
+ * Return:	size of allocated buffer
  */
 unsigned long efi_serialize_load_option(struct efi_load_option *lo, u8 **data)
 {
-	unsigned long label_len, option_len;
+	unsigned long label_len;
 	unsigned long size;
 	u8 *p;
 
 	label_len = (u16_strlen(lo->label) + 1) * sizeof(u16);
-	option_len = strlen((char *)lo->optional_data);
 
 	/* total size */
 	size = sizeof(lo->attributes);
 	size += sizeof(lo->file_path_length);
 	size += label_len;
 	size += lo->file_path_length;
-	size += option_len + 1;
+	if (lo->optional_data)
+		size += (utf8_utf16_strlen((const char *)lo->optional_data)
+					   + 1) * sizeof(u16);
 	p = malloc(size);
 	if (!p)
 		return 0;
@@ -84,14 +98,23 @@ unsigned long efi_serialize_load_option(struct efi_load_option *lo, u8 **data)
 	memcpy(p, lo->file_path, lo->file_path_length);
 	p += lo->file_path_length;
 
-	memcpy(p, lo->optional_data, option_len);
-	p += option_len;
-	*(char *)p = '\0';
-
+	if (lo->optional_data) {
+		utf8_utf16_strcpy((u16 **)&p, (const char *)lo->optional_data);
+		p += sizeof(u16); /* size of trailing \0 */
+	}
 	return size;
 }
 
-/* free() the result */
+/**
+ * get_var() - get UEFI variable
+ *
+ * It is the caller's duty to free the returned buffer.
+ *
+ * @name:	name of variable
+ * @vendor:	vendor GUID of variable
+ * @size:	size of allocated buffer
+ * Return:	buffer with variable data or NULL
+ */
 static void *get_var(u16 *name, const efi_guid_t *vendor,
 		     efi_uintn_t *size)
 {
@@ -115,10 +138,16 @@ static void *get_var(u16 *name, const efi_guid_t *vendor,
 	return buf;
 }
 
-/*
+/**
+ * try_load_entry() - try to load image for boot option
+ *
  * Attempt to load load-option number 'n', returning device_path and file_path
- * if successful.  This checks that the EFI_LOAD_OPTION is active (enabled)
+ * if successful. This checks that the EFI_LOAD_OPTION is active (enabled)
  * and that the specified file to boot exists.
+ *
+ * @n:		number of the boot option, e.g. 0x0a13 for Boot0A13
+ * @handle:	on return handle for the newly installed image
+ * Return:	status code
  */
 static efi_status_t try_load_entry(u16 n, efi_handle_t *handle)
 {
@@ -148,8 +177,11 @@ static efi_status_t try_load_entry(u16 n, efi_handle_t *handle)
 
 		ret = EFI_CALL(efi_load_image(true, efi_root, lo.file_path,
 					      NULL, 0, handle));
-		if (ret != EFI_SUCCESS)
+		if (ret != EFI_SUCCESS) {
+			printf("Loading from Boot%04X '%ls' failed\n", n,
+			       lo.label);
 			goto error;
+		}
 
 		attributes = EFI_VARIABLE_BOOTSERVICE_ACCESS |
 			     EFI_VARIABLE_RUNTIME_ACCESS;
@@ -176,10 +208,15 @@ error:
 	return ret;
 }
 
-/*
+/**
+ * efi_bootmgr_load() - try to load from BootNext or BootOrder
+ *
  * Attempt to load from BootNext or in the order specified by BootOrder
  * EFI variable, the available load-options, finding and returning
  * the first one that can be loaded successfully.
+ *
+ * @handle:	on return handle for the newly installed image
+ * Return:	status code
  */
 efi_status_t efi_bootmgr_load(efi_handle_t *handle)
 {
@@ -206,7 +243,8 @@ efi_status_t efi_bootmgr_load(efi_handle_t *handle)
 		ret = EFI_CALL(efi_set_variable(
 					L"BootNext",
 					(efi_guid_t *)&efi_global_variable_guid,
-					0, 0, &bootnext));
+					EFI_VARIABLE_NON_VOLATILE, 0,
+					&bootnext));
 
 		/* load BootNext */
 		if (ret == EFI_SUCCESS) {
@@ -214,6 +252,7 @@ efi_status_t efi_bootmgr_load(efi_handle_t *handle)
 				ret = try_load_entry(bootnext, handle);
 				if (ret == EFI_SUCCESS)
 					return ret;
+				printf("Loading from BootNext failed, falling back to BootOrder\n");
 			}
 		} else {
 			printf("Deleting BootNext failed\n");

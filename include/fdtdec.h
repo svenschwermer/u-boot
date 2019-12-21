@@ -24,30 +24,6 @@
 typedef phys_addr_t fdt_addr_t;
 typedef phys_size_t fdt_size_t;
 
-static inline fdt32_t fdt_addr_unpack(fdt_addr_t addr, fdt32_t *upper)
-{
-	if (upper)
-#ifdef CONFIG_PHYS_64BIT
-		*upper = addr >> 32;
-#else
-		*upper = 0;
-#endif
-
-	return addr;
-}
-
-static inline fdt32_t fdt_size_unpack(fdt_size_t size, fdt32_t *upper)
-{
-	if (upper)
-#ifdef CONFIG_PHYS_64BIT
-		*upper = size >> 32;
-#else
-		*upper = 0;
-#endif
-
-	return size;
-}
-
 #ifdef CONFIG_PHYS_64BIT
 #define FDT_ADDR_T_NONE (-1U)
 #define fdt_addr_to_cpu(reg) be64_to_cpu(reg)
@@ -78,7 +54,7 @@ struct bd_info;
 #define SPL_BUILD	0
 #endif
 
-#if CONFIG_IS_ENABLED(OF_PRIOR_STAGE)
+#ifdef CONFIG_OF_PRIOR_STAGE
 extern phys_addr_t prior_stage_fdt_address;
 #endif
 
@@ -439,23 +415,6 @@ fdt_addr_t fdtdec_get_addr(const void *blob, int node,
  */
 fdt_addr_t fdtdec_get_addr_size(const void *blob, int node,
 		const char *prop_name, fdt_size_t *sizep);
-
-/**
- * Look at an address property in a node and return the pci address which
- * corresponds to the given type in the form of fdt_pci_addr.
- * The property must hold one fdt_pci_addr with a lengh.
- *
- * @param blob		FDT blob
- * @param node		node to examine
- * @param type		pci address type (FDT_PCI_SPACE_xxx)
- * @param prop_name	name of property to find
- * @param addr		returns pci address in the form of fdt_pci_addr
- * @return 0 if ok, -ENOENT if the property did not exist, -EINVAL if the
- *		format of the property was invalid, -ENXIO if the requested
- *		address type was not found
- */
-int fdtdec_get_pci_addr(const void *blob, int node, enum fdt_pci_space type,
-		const char *prop_name, struct fdt_pci_addr *addr);
 
 /**
  * Look at the compatible property of a device node that represents a PCI
@@ -1021,6 +980,30 @@ int fdtdec_setup_memory_banksize_fdt(const void *blob);
 int fdtdec_setup_memory_banksize(void);
 
 /**
+ * fdtdec_set_ethernet_mac_address() - set MAC address for default interface
+ *
+ * Looks up the default interface via the "ethernet" alias (in the /aliases
+ * node) and stores the given MAC in its "local-mac-address" property. This
+ * is useful on platforms that store the MAC address in a custom location.
+ * Board code can call this in the late init stage to make sure that the
+ * interface device tree node has the right MAC address configured for the
+ * Ethernet uclass to pick it up.
+ *
+ * Typically the FDT passed into this function will be U-Boot's control DTB.
+ * Given that a lot of code may be holding offsets to various nodes in that
+ * tree, this code will only set the "local-mac-address" property in-place,
+ * which means that it needs to exist and have space for the 6-byte address.
+ * This ensures that the operation is non-destructive and does not invalidate
+ * offsets that other drivers may be using.
+ *
+ * @param fdt FDT blob
+ * @param mac buffer containing the MAC address to set
+ * @param size size of MAC address
+ * @return 0 on success or a negative error code on failure
+ */
+int fdtdec_set_ethernet_mac_address(void *fdt, const u8 *mac, size_t size);
+
+/**
  * fdtdec_set_phandle() - sets the phandle of a given node
  *
  * @param blob		FDT blob
@@ -1078,6 +1061,7 @@ static inline int fdtdec_set_phandle(void *blob, int node, uint32_t phandle)
  * @param basename	base name of the node to create
  * @param carveout	information about the carveout region
  * @param phandlep	return location for the phandle of the carveout region
+ *			can be NULL if no phandle should be added
  * @return 0 on success or a negative error code on failure
  */
 int fdtdec_add_reserved_memory(void *blob, const char *basename,

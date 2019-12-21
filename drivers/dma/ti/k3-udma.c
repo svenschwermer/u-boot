@@ -6,6 +6,7 @@
 #define pr_fmt(fmt) "udma: " fmt
 
 #include <common.h>
+#include <cpu_func.h>
 #include <asm/io.h>
 #include <asm/bitops.h>
 #include <malloc.h>
@@ -102,6 +103,8 @@ struct udma_chan {
 	struct udma_tchan *tchan;
 	struct udma_rchan *rchan;
 	struct udma_rflow *rflow;
+
+	struct ti_udma_drv_chan_cfg_data cfg_data;
 
 	u32 bcnt; /* number of bytes completed since the start of the channel */
 
@@ -575,14 +578,6 @@ static int udma_get_tchan(struct udma_chan *uc)
 
 	pr_debug("chan%d: got tchan%d\n", uc->id, uc->tchan->id);
 
-	if (udma_is_chan_running(uc)) {
-		dev_warn(ud->dev, "chan%d: tchan%d is running!\n", uc->id,
-			 uc->tchan->id);
-		udma_stop(uc);
-		if (udma_is_chan_running(uc))
-			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
-	}
-
 	return 0;
 }
 
@@ -601,14 +596,6 @@ static int udma_get_rchan(struct udma_chan *uc)
 		return PTR_ERR(uc->rchan);
 
 	pr_debug("chan%d: got rchan%d\n", uc->id, uc->rchan->id);
-
-	if (udma_is_chan_running(uc)) {
-		dev_warn(ud->dev, "chan%d: rchan%d is running!\n", uc->id,
-			 uc->rchan->id);
-		udma_stop(uc);
-		if (udma_is_chan_running(uc))
-			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
-	}
 
 	return 0;
 }
@@ -651,14 +638,6 @@ static int udma_get_chan_pair(struct udma_chan *uc)
 	uc->rchan = &ud->rchans[chan_id];
 
 	pr_debug("chan%d: got t/rchan%d pair\n", uc->id, chan_id);
-
-	if (udma_is_chan_running(uc)) {
-		dev_warn(ud->dev, "chan%d: t/rchan%d pair is running!\n",
-			 uc->id, chan_id);
-		udma_stop(uc);
-		if (udma_is_chan_running(uc))
-			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
-	}
 
 	return 0;
 }
@@ -1071,6 +1050,15 @@ static int udma_alloc_chan_resources(struct udma_chan *uc)
 		}
 	}
 
+	if (udma_is_chan_running(uc)) {
+		dev_warn(ud->dev, "chan%d: is running!\n", uc->id);
+		udma_stop(uc);
+		if (udma_is_chan_running(uc)) {
+			dev_err(ud->dev, "chan%d: won't stop!\n", uc->id);
+			goto err_free_res;
+		}
+	}
+
 	/* PSI-L pairing */
 	ret = udma_navss_psil_pair(ud, uc->src_thread, uc->dst_thread);
 	if (ret) {
@@ -1421,6 +1409,11 @@ static int udma_request(struct dma *dma)
 	uc->desc_rx_cur = 0;
 	uc->num_rx_bufs = 0;
 
+	if (uc->dir == DMA_DEV_TO_MEM) {
+		uc->cfg_data.flow_id_base = uc->rflow->id;
+		uc->cfg_data.flow_id_cnt = 1;
+	}
+
 	return 0;
 }
 
@@ -1492,7 +1485,7 @@ static int udma_send(struct dma *dma, void *src, size_t len, void *metadata)
 	u32 tc_ring_id;
 	int ret;
 
-	if (!metadata)
+	if (metadata)
 		packet_data = *((struct ti_udma_drv_packet_data *)metadata);
 
 	if (dma->id >= (ud->rchan_cnt + ud->tchan_cnt)) {
@@ -1703,6 +1696,26 @@ int udma_prepare_rcv_buf(struct dma *dma, void *dst, size_t size)
 	return 0;
 }
 
+static int udma_get_cfg(struct dma *dma, u32 id, void **data)
+{
+	struct udma_dev *ud = dev_get_priv(dma->dev);
+	struct udma_chan *uc;
+
+	if (dma->id >= (ud->rchan_cnt + ud->tchan_cnt)) {
+		dev_err(dma->dev, "invalid dma ch_id %lu\n", dma->id);
+		return -EINVAL;
+	}
+
+	switch (id) {
+	case TI_UDMA_CHAN_PRIV_INFO:
+		uc = &ud->channels[dma->id];
+		*data = &uc->cfg_data;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
 static const struct dma_ops udma_ops = {
 	.transfer	= udma_transfer,
 	.of_xlate	= udma_of_xlate,
@@ -1713,10 +1726,12 @@ static const struct dma_ops udma_ops = {
 	.send		= udma_send,
 	.receive	= udma_receive,
 	.prepare_rcv_buf = udma_prepare_rcv_buf,
+	.get_cfg	= udma_get_cfg,
 };
 
 static const struct udevice_id udma_ids[] = {
 	{ .compatible = "ti,k3-navss-udmap" },
+	{ .compatible = "ti,j721e-navss-mcu-udmap" },
 	{ }
 };
 

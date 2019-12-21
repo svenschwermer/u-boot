@@ -21,8 +21,6 @@
 #define CONFIG_LOADCMD "fatload"
 #define CONFIG_RFSPART "2"
 
-#define CONFIG_SUPPORT_EMMC_BOOT
-
 #include "mx6_common.h"
 #include <linux/sizes.h>
 
@@ -41,7 +39,6 @@
 #define CONFIG_LBA48
 
 /* MMC Configs */
-#define CONFIG_FSL_USDHC
 #define CONFIG_SYS_FSL_ESDHC_ADDR      0
 
 /* USB Configs */
@@ -207,10 +204,6 @@
 
 /* FLASH and environment organization */
 
-#define CONFIG_ENV_SIZE                 (8 * 1024)
-#define CONFIG_ENV_OFFSET               (768 * 1024)
-#define CONFIG_ENV_SECT_SIZE            (64 * 1024)
-
 #define CONFIG_SYS_FSL_USDHC_NUM        3
 
 /* Framebuffer */
@@ -225,7 +218,6 @@
 #define CONFIG_IMX_VIDEO_SKIP
 #endif
 
-#define CONFIG_PWM_IMX
 #define CONFIG_IMX6_PWM_PER_CLK         66000000
 
 #ifdef CONFIG_CMD_PCI

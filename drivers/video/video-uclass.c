@@ -4,6 +4,7 @@
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <dm.h>
 #include <mapmem.h>
 #include <stdio_dev.h>
@@ -91,6 +92,7 @@ int video_clear(struct udevice *dev)
 	struct video_priv *priv = dev_get_uclass_priv(dev);
 
 	switch (priv->bpix) {
+#ifdef CONFIG_VIDEO_BPP16
 	case VIDEO_BPP16: {
 		u16 *ppix = priv->fb;
 		u16 *end = priv->fb + priv->fb_size;
@@ -99,6 +101,8 @@ int video_clear(struct udevice *dev)
 			*ppix++ = priv->colour_bg;
 		break;
 	}
+#endif
+#ifdef CONFIG_VIDEO_BPP32
 	case VIDEO_BPP32: {
 		u32 *ppix = priv->fb;
 		u32 *end = priv->fb + priv->fb_size;
@@ -107,6 +111,7 @@ int video_clear(struct udevice *dev)
 			*ppix++ = priv->colour_bg;
 		break;
 	}
+#endif
 	default:
 		memset(priv->fb, priv->colour_bg, priv->fb_size);
 		break;
@@ -149,7 +154,7 @@ void video_sync(struct udevice *vid, bool force)
 	 * architectures do not actually implement it. Is there a way to find
 	 * out whether it exists? For now, ARM is safe.
 	 */
-#if defined(CONFIG_ARM) && !defined(CONFIG_SYS_DCACHE_OFF)
+#if defined(CONFIG_ARM) && !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
 	struct video_priv *priv = dev_get_uclass_priv(vid);
 
 	if (priv->flush_dcache) {
@@ -291,7 +296,9 @@ static int video_post_bind(struct udevice *dev)
 		return 0;
 	size = alloc_fb(dev, &addr);
 	if (addr < gd->video_bottom) {
-		/* Device tree node may need the 'u-boot,dm-pre-reloc' tag */
+		/* Device tree node may need the 'u-boot,dm-pre-reloc' or
+		 * 'u-boot,dm-pre-proper' tag
+		 */
 		printf("Video device '%s' cannot allocate frame buffer memory -ensure the device is set up before relocation\n",
 		       dev->name);
 		return -ENOSPC;
