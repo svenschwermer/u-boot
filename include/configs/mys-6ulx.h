@@ -49,7 +49,7 @@
 # define CONFIG_MXC_USB_PORTSC (PORT_PTS_UTMI | PORT_PTS_PTW)
 #endif
 
-#ifdef CONFIG_NAND
+#ifdef CONFIG_MTD_RAW_NAND
 # define CONFIG_SYS_MAX_NAND_DEVICE 1
 #endif
 

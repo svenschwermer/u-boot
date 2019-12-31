@@ -15,6 +15,11 @@
 		stdout-path = &uart1;
 	};
 
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x10000000>;
+	};
+
 	reg_vdd_3v3: regulator-vdd-3v3 {
 		compatible = "regulator-fixed";
 		regulator-name = "VDD_3V3";
@@ -50,9 +55,33 @@
 &gpmi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpmi_nand>;
-	nand-on-flash-bbt;
 	nand-ecc-mode = "hw";
+	nand-on-flash-bbt;
+	fsl,no-blockmark-swap;
 	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	partition@0 {
+		label = "spl";
+		reg = <0x0 0x20000>; /* 128 kiB */
+	};
+
+	partition@20000 {
+		label = "u-boot";
+		reg = <0x20000 0x100000>; /* 1 MiB */
+	};
+
+	partition@120000 {
+		label = "u-boot-env";
+		reg = <0x120000 0x20000>; /* 128 kiB */
+	};
+
+	partition@140000 {
+		label = "rootfs";
+		reg = <0x140000 0x0>;
+	};
 };
 
 &sdma {
