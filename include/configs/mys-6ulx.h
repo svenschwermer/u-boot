@@ -18,13 +18,12 @@
 
 /* Default environment */
 #define CONFIG_EXTRA_ENV_SETTINGS \
-	"image=zImage\0" \
-	"fdt_addr=0x87800000\0" \
+	"fitaddr=0x84000000\0" \
+	"image=fitImage\0" \
 	"netboot=echo Booting over the network ...; " \
-	    "dhcp ${fdt_addr} imx6ull-mys-6ulx-iot.dtb; " \
-	    "dhcp ${loadaddr} ${image}; " \
             "setenv bootargs root=/dev/nfs nfsroot=/srv/nfs/mys_rfs ip=dhcp console=ttymxc0,115200; " \
-	    "bootz ${loadaddr} - ${fdt_addr}; \0"
+	    "dhcp ${fitaddr} ${image}; " \
+	    "bootm ${fitaddr};\0"
 
 /* Miscellaneous configurable options */
 #define CONFIG_SYS_MEMTEST_START	0x80000000
