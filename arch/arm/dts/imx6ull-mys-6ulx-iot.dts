@@ -55,9 +55,7 @@
 &gpmi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpmi_nand>;
-	nand-ecc-mode = "hw";
 	nand-on-flash-bbt;
-	fsl,no-blockmark-swap;
 	status = "okay";
 
 	#address-cells = <1>;
@@ -65,22 +63,22 @@
 
 	partition@0 {
 		label = "spl";
-		reg = <0x0 0x20000>; /* 128 kiB */
+		reg = <0x0 0x100000>; /* 1 MiB */
 	};
 
 	partition@20000 {
 		label = "u-boot";
-		reg = <0x20000 0x100000>; /* 1 MiB */
+		reg = <0x100000 0x100000>; /* 1 MiB */
 	};
 
 	partition@120000 {
 		label = "u-boot-env";
-		reg = <0x120000 0x20000>; /* 128 kiB */
+		reg = <0x200000 0x20000>; /* 128 kiB */
 	};
 
 	partition@140000 {
 		label = "rootfs";
-		reg = <0x140000 0x0>;
+		reg = <0x220000 0x0>;
 	};
 };
 

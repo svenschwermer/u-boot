@@ -1,0 +1,11 @@
+Flash NAND like so (from Linux):
+
+$ flash_erase /dev/mtd0 0 0
+$ kobs-ng init -x SPL --search_exponent=1 -v
+$ flash_erase /dev/mtd1 0 0
+$ nandwrite -p /dev/mtd1 u-boot.img
+
+Ref: http://variwiki.com/index.php?title=Yocto_NAND_Flash_Burning#Manual_step-by-step_flashing_to_NAND_flash
+
+I had problems with a bad bad block table (BBT), so I ran "nand scrub"
+from the u-boot shell which resets that.
