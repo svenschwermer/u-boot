@@ -1,0 +1,8 @@
+MYiR MYS-6ULX BOARD
+M:	Sven Schwermer <sven@svenschwermer.de>
+S:	Maintained
+F:	board/myir/mys-6ulx/
+F:	arch/arm/dts/imx6ull-mys-6ulx-iot-u-boot.dtsi
+F:	arch/arm/dts/imx6ull-mys-6ulx-iot.dts
+F:	configs/mys_6ulx_iot_defconfig
+F:	include/configs/mys-6ulx.h
