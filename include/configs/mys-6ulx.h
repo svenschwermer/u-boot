@@ -23,7 +23,13 @@
 	"netboot=echo Booting over the network ...; " \
             "setenv bootargs root=/dev/nfs nfsroot=/srv/nfs/mys_rfs ip=dhcp console=ttymxc0,115200; " \
 	    "dhcp ${fitaddr} ${image}; " \
-	    "bootm ${fitaddr};\0"
+	    "bootm ${fitaddr}\0" \
+        "ubiboot=echo Booting from NAND (UBIFS) ...; " \
+            "setenv bootargs ubi.mtd=rootfs root=ubi0:rootfs rootfstype=ubifs console=ttymxc0,115200; " \
+            "ubi part rootfs; " \
+            "ubifsmount ubi0:rootfs; " \
+            "ubifsload ${fitaddr} /boot/${image}; " \
+            "bootm ${fitaddr}\0"
 
 /* Miscellaneous configurable options */
 #define CONFIG_SYS_MEMTEST_START	0x80000000
